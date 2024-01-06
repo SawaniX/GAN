@@ -1,1 +1,3 @@
 archive
+.env
+__pycache__
