@@ -1,3 +1,5 @@
 archive
 .env
 __pycache__
+*.tar
+evaluation
