@@ -43,6 +43,12 @@ def train_epoch(discriminator, generator, loader, opt_disc, opt_gen, L1, BCE, g_
         g_scaler.step(opt_gen)
         g_scaler.update()
 
+        if idx % 10 == 0:
+            loop.set_postfix(
+                D_real=torch.sigmoid(D_real).mean().item(),
+                D_fake=torch.sigmoid(D_fake).mean().item(),
+            )
+
 def main():
     LEARNING_RATE = 0.002
     NUM_EPOCH = 100
