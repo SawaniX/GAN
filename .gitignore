@@ -3,3 +3,5 @@ archive
 __pycache__
 *.tar
 evaluation
+maps
+runs

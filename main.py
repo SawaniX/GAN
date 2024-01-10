@@ -1,13 +1,25 @@
 import torch
+import torchvision
 from dataset import LoadData
 from models import Discriminator, Generator, config
-from torchvision.transforms import ToTensor
+from torchvision.transforms import transforms
 from torch import nn, optim
 from tqdm import tqdm
 from urils import save_checkpoint, load_checkpoint, save_some_examples
 import matplotlib.pyplot as plt
+from torch.utils.tensorboard import SummaryWriter
 
 torch.backends.cudnn.benchmark = True
+
+def plot_samples(train_dataloader):
+    writer = SummaryWriter()
+    dataiter = iter(train_dataloader)
+    images, labels = next(dataiter)
+    img = torch.cat((images, labels))
+    img_grid = torchvision.utils.make_grid(img)
+    writer.add_image('dataset_samples', img_grid)
+    writer.flush()
+    writer.close()
 
 
 def main():
@@ -27,13 +39,18 @@ def main():
     BCE = nn.BCEWithLogitsLoss()
     L1 = nn.L1Loss()
 
-    train_dataloader, test_dataloader = LoadData(transform=ToTensor(),
-                                                target_transform=ToTensor()
-                                                ).get_dataloader(train_split=0.7,
-                                                                test_split=0.3,
-                                                                batch_size=1)
+    transform = transforms.Compose([transforms.ToTensor()])
+    target_transform = transforms.Compose([transforms.ToTensor()])
+    loader = LoadData(transform=transform,
+                      target_transform=target_transform)
+    train_dataloader, test_dataloader = loader.get_dataloader(train_split=0.7, 
+                                                              test_split=0.3, 
+                                                              batch_size=config.get('BATCH_SIZE'),
+                                                              shuffle=True)
     g_scaler = torch.cuda.amp.grad_scaler.GradScaler()
     d_scaler = torch.cuda.amp.grad_scaler.GradScaler()
+
+    # plot_samples(train_dataloader)
 
     print('============= TRAINING STARTED =============')
     for epoch in range(config.get('NUM_EPOCHS')):
@@ -77,13 +94,6 @@ def main():
             save_checkpoint(discriminator, opt_disc, filename='disc.pth.tar')
 
         save_some_examples(generator, test_dataloader, epoch, folder="evaluation", device=device)
-
-
-    # _, axs = plt.subplots(1, 2)
-    # for X, y in train_dataloader:
-    #     axs[0].imshow(torch.permute(X[0], (1, 2, 0)))
-    #     axs[1].imshow(torch.permute(y[0], (1, 2, 0)))
-    #     plt.show()
 
     
 if __name__=='__main__':
