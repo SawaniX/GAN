@@ -4,5 +4,5 @@ CONFIG = {
     'BETAS': (0.5, 0.999),
     'NUM_EPOCHS': 100,
     'SAVE_MODEL': True,
-    'LAMBDA': 100,
+    'LAMBDA': 100
 }

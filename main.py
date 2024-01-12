@@ -1,15 +1,15 @@
 import torch
 import torchvision
-from dataset import LoadData
 from models import Discriminator, Generator, config
 from torchvision.transforms import transforms
-from torch.utils.data import DataLoader
-from torch import nn
+from torch.utils.data import DataLoader, random_split
+from torch import nn, Tensor
 from torch.optim import Adam
 from tqdm import tqdm
 from torchvision.utils import save_image
 import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
+from dataset import CustomDataset
 
 torch.backends.cudnn.benchmark = True
 
@@ -31,6 +31,9 @@ class InitNeuralNetworks:
         L1 = nn.L1Loss()
         g_scaler = torch.cuda.amp.grad_scaler.GradScaler()
         d_scaler = torch.cuda.amp.grad_scaler.GradScaler()
+
+        x, y = next(iter(test_dataloader))
+        x, y = x.to(self.device), y.to(self.device)
 
         for epoch in range(config.get('NUM_EPOCHS')):
             loop = tqdm(train_dataloader, leave=True)
@@ -71,16 +74,13 @@ class InitNeuralNetworks:
             if config.get('SAVE_MODEL') and epoch % 5 == 0:
                 self._save_checkpoint()
 
-            self._save_example(test_dataloader, epoch)
+            self._save_example(x, y, epoch)
 
-    def _save_example(self, test_dataloader: DataLoader, epoch: int) -> None:
+    def _save_example(self, x: Tensor, y: Tensor, epoch: int) -> None:
         folder = 'evaluation'
-        x, y = next(iter(test_dataloader))
-        x, y = x.to(self.device), y.to(self.device)
         self.generator.eval()
         with torch.no_grad():
             y_fake = self.generator(x)
-            #y_fake = y_fake * 0.5 + 0.5  # remove normalization#
             save_image(y_fake, folder + f"/y_gen_{epoch}.png")
             save_image(x, folder + f"/input_{epoch}.png")
             if epoch == 1:
@@ -130,17 +130,25 @@ def plot_samples(train_dataloader):
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using {device} device")
-
-    neural_networks = InitNeuralNetworks(device)
+    LABELS_PATH = 'dataset/archive/256x256/photo/tx_000000000000/airplane/' #os.environ.get('LABELS_PATH')
+    SAMPLES_PATH = 'dataset/archive/256x256/sketch/tx_000000000000/airplane/' #os.environ.get('SAMPLES_PATH')
+    train_split, test_split = 0.7, 0.3
 
     transform = transforms.Compose([transforms.ToTensor()])
     target_transform = transforms.Compose([transforms.ToTensor()])
-    loader = LoadData(transform=transform,
-                      target_transform=target_transform)
-    train_dataloader, test_dataloader = loader.get_dataloader(train_split=0.7, 
-                                                              test_split=0.3, 
-                                                              batch_size=config.get('BATCH_SIZE'),
-                                                              shuffle=True)
+    dataset = CustomDataset(labels_path=LABELS_PATH,
+                            samples_path=SAMPLES_PATH,
+                            transform=transform,
+                            target_transform=target_transform)
+    train_dataset, test_dataset = random_split(dataset, [train_split, test_split])
+    train_dataloader = DataLoader(train_dataset,
+                              batch_size=config.get('BATCH_SIZE'),
+                              shuffle=True)
+    test_dataloader = DataLoader(test_dataset,
+                                batch_size=config.get('BATCH_SIZE'),
+                                shuffle=False)
+
+    neural_networks = InitNeuralNetworks(device)
 
     # plot_samples(train_dataloader)
 
