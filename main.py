@@ -32,9 +32,6 @@ class InitNeuralNetworks:
         g_scaler = torch.cuda.amp.grad_scaler.GradScaler()
         d_scaler = torch.cuda.amp.grad_scaler.GradScaler()
 
-        x, y = next(iter(test_dataloader))
-        x, y = x.to(self.device), y.to(self.device)
-
         for epoch in range(config.get('NUM_EPOCHS')):
             loop = tqdm(train_dataloader, leave=True)
 
@@ -47,7 +44,7 @@ class InitNeuralNetworks:
                     D_fake = self.discriminator(x, y_fake.detach())
                     D_real_loss = BCE(D_real, torch.ones_like(D_real))
                     D_fake_loss = BCE(D_fake, torch.zeros_like(D_fake))
-                    D_loss = (D_real_loss + D_fake_loss) / 2
+                    D_loss = D_real_loss + D_fake_loss
 
                 self.discriminator.zero_grad()
                 d_scaler.scale(D_loss).backward()
@@ -65,22 +62,25 @@ class InitNeuralNetworks:
                 g_scaler.step(self.generator_optimizer)
                 g_scaler.update()
 
-                if idx % 10 == 0:
-                    loop.set_postfix(
-                        D_real=torch.sigmoid(D_real).mean().item(),
-                        D_fake=torch.sigmoid(D_fake).mean().item(),
-                    )
+                # if idx % 10 == 0:
+                #     loop.set_postfix(
+                #         D_real=torch.sigmoid(D_real).mean().item(),
+                #         D_fake=torch.sigmoid(D_fake).mean().item(),
+                #     )
 
             if config.get('SAVE_MODEL') and epoch % 5 == 0:
                 self._save_checkpoint()
 
-            self._save_example(x, y, epoch)
+            self._save_example(test_dataloader, epoch)
 
-    def _save_example(self, x: Tensor, y: Tensor, epoch: int) -> None:
+    def _save_example(self, test_dataloader: DataLoader, epoch: int) -> None:
         folder = 'evaluation'
+        x, y = next(iter(test_dataloader))
+        x, y = x.to(self.device), y.to(self.device)
         self.generator.eval()
         with torch.no_grad():
             y_fake = self.generator(x)
+            y_fake = y_fake * 0.5 + 0.5
             save_image(y_fake, folder + f"/y_gen_{epoch}.png")
             save_image(x, folder + f"/input_{epoch}.png")
             if epoch == 1:
@@ -133,13 +133,18 @@ def main():
     LABELS_PATH = 'dataset/archive/256x256/photo/tx_000000000000/airplane/' #os.environ.get('LABELS_PATH')
     SAMPLES_PATH = 'dataset/archive/256x256/sketch/tx_000000000000/airplane/' #os.environ.get('SAMPLES_PATH')
     train_split, test_split = 0.7, 0.3
+    resize = (286, 286)
+    crop_size = (256, 256)
 
-    transform = transforms.Compose([transforms.ToTensor()])
-    target_transform = transforms.Compose([transforms.ToTensor()])
+    transform = transforms.Compose([transforms.ToTensor(),
+                                    transforms.Resize(size=resize, antialias=True),
+                                    transforms.RandomCrop(size=crop_size),
+                                    transforms.RandomHorizontalFlip(),
+                                    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])])
     dataset = CustomDataset(labels_path=LABELS_PATH,
                             samples_path=SAMPLES_PATH,
                             transform=transform,
-                            target_transform=target_transform)
+                            target_transform=transform)
     train_dataset, test_dataset = random_split(dataset, [train_split, test_split])
     train_dataloader = DataLoader(train_dataset,
                               batch_size=config.get('BATCH_SIZE'),
@@ -147,10 +152,10 @@ def main():
     test_dataloader = DataLoader(test_dataset,
                                 batch_size=config.get('BATCH_SIZE'),
                                 shuffle=False)
+    
+    #plot_samples(train_dataloader)
 
     neural_networks = InitNeuralNetworks(device)
-
-    # plot_samples(train_dataloader)
 
     print('============= TRAINING STARTED =============')
     neural_networks.train(train_dataloader, test_dataloader)
