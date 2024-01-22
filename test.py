@@ -1,3 +1,4 @@
+from PIL import Image
 from torch import nn, cat, randn
 
 
@@ -65,13 +66,45 @@ class Generator(nn.Module):
         up7 = self.up7(cat([up6, d2], 1))
         return self.final_up(cat([up7, d1], 1))
     
+model = Generator()
 
-def test():
-    x = randn((1, 3, 256, 256))
-    model = Generator(in_channels=3, features=64)
-    preds = model(x)
-    print(preds.shape)
+import torch
+checkpoint = torch.load('checkpoint.path.tar')
 
-if __name__=='__main__':
-    test()
+model.load_state_dict(checkpoint['generator_state_dict'])
+model.eval()
 
+import os
+import re
+import numpy as np
+from PIL import Image
+from torch.utils.data import Dataset
+from torchvision import transforms
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+transform_label = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Resize((256, 256), antialias=True),
+])
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Resize((256, 256), antialias=True),
+    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+])
+image_filenames = [x for x in os.listdir('maps/val')]
+
+for img_name in image_filenames:
+    image = np.array(Image.open(f'maps/val/{img_name}'))
+    img = image[:, :600, :]
+    label = image[:, 600:, :]
+    label = transform_label(label)
+    img = transform(img)
+    img = img.unsqueeze(0).to(device)
+    if torch.cuda.is_available():
+        model.cuda()
+    out = model(img)
+    out.detach().squeeze(0).cpu()
+
+    from torchvision.utils import save_image
+    save_image(label,  f"wyniki/label{img_name}.png")
+    save_image(out,  f"wyniki/wynik{img_name}.png")

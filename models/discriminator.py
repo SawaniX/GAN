@@ -6,7 +6,7 @@ class ConvolutionBlock(nn.Module):
         super().__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, 4, stride, bias=False, padding=1, padding_mode='reflect'),
-            nn.BatchNorm2d(out_channels),
+            nn.InstanceNorm2d(out_channels, affine=True),
             nn.LeakyReLU(0.2)
         )
 
