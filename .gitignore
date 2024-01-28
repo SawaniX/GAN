@@ -1,3 +1,9 @@
 archive
 .env
 __pycache__
+*.tar
+evaluation
+maps
+runs
+checkpoints
+datasets
