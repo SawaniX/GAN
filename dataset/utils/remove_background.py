@@ -4,8 +4,8 @@ from PIL import Image
 import os
 
 
-DATASET_PATH = 'archive/cars_train/cars_train/'
-SAVE_PATH = 'removed_background_cars/cars_train/'
+DATASET_PATH = 'dataset/datasets/animals/animals/train/dog/'
+SAVE_PATH = 'dataset/datasets/animals/animals/concatenated/'
 
 all_files = os.listdir(DATASET_PATH)
 

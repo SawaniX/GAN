@@ -3,12 +3,12 @@ import os
 from sklearn.model_selection import train_test_split
 
 
-DATASET_PATH = 'dataset/datasets/clothes/raw_dataset/data/Footwear/Men/Images/images_with_product_ids/'
-SAVE_PATH = 'dataset/datasets/clothes/'
+DATASET_PATH = 'dataset/datasets/animals/animals/concatenated/'
+SAVE_PATH = 'dataset/datasets/animals/'
 THRESHOLD1 = 100
 THRESHOLD2 = 200
 INITIAL_BLUR_WINDOW = (3,3)
-SMOOTH_BLUR_WINDOW = (5,5)
+SMOOTH_BLUR_WINDOW = (3,3)
 RESIZE = (256, 256)
 TEST_SIZE = 0.1
 split = True
@@ -23,9 +23,9 @@ def convert_to_edges(files: list[str]) -> tuple[list, list]:
         labels.append(img)
 
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        img_blur = cv2.GaussianBlur(img_gray, INITIAL_BLUR_WINDOW, 0) 
+        img_gray = cv2.GaussianBlur(img_gray, INITIAL_BLUR_WINDOW, 0) 
 
-        edges = cv2.Canny(image=img_blur, threshold1=THRESHOLD1, threshold2=THRESHOLD2)
+        edges = cv2.Canny(image=img_gray, threshold1=THRESHOLD1, threshold2=THRESHOLD2)
         edges = cv2.bitwise_not(edges)
 
         edges = cv2.GaussianBlur(edges, SMOOTH_BLUR_WINDOW, 0)

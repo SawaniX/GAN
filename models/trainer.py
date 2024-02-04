@@ -1,4 +1,5 @@
 import torch
+import os
 from models import Discriminator, Generator, config
 from torch.utils.data import DataLoader
 from torch import nn
@@ -9,10 +10,9 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 class Trainer:
-    SAVE_PATH: str = 'models/checkpoints/checkpoint.path.tar'
-
-    def __init__(self, device: str, in_channels: int = 3) -> None:
+    def __init__(self, device: str, save_path: str, in_channels: int = 3) -> None:
         self.device: str = device
+        self.save_path: str = save_path
         self.generator: Generator = Generator(in_channels).to(device)
         self.discriminator: Discriminator = Discriminator(in_channels).to(device)
         self.generator_optimizer: Adam = Adam(self.generator.parameters(), 
@@ -21,7 +21,7 @@ class Trainer:
         self.discriminator_optimizer: Adam = Adam(self.discriminator.parameters(), 
                                                   lr=config.get('LEARNING_RATE'), 
                                                   betas=config.get('BETAS'))
-        self.writer = SummaryWriter()
+        self.writer = SummaryWriter(log_dir=self.save_path)
         
     def train(self, train_dataloader: DataLoader, test_dataloader: DataLoader):
         BCE = nn.BCEWithLogitsLoss()
@@ -54,9 +54,9 @@ class Trainer:
                 G_loss.backward()
                 self.generator_optimizer.step()
 
-            if config.get('SAVE_MODEL') and epoch % 5 == 0:
-                self._save_checkpoint()
-                self._save_example(test_dataloader, epoch)
+            if config.get('SAVE_MODEL') and epoch % 25 == 0:
+                self._save_checkpoint(epoch)
+            self._save_example(test_dataloader, epoch)
             self.writer.add_scalar('Discriminator loss', D_loss, epoch)
             self.writer.add_scalar('Generator loss', G_loss, epoch)
 
@@ -71,16 +71,16 @@ class Trainer:
             self.writer.add_image('Prediction', img_grid, epoch)
         self.generator.train()
         
-    def _save_checkpoint(self) -> None:
+    def _save_checkpoint(self, epoch: int) -> None:
         torch.save({
             'generator_state_dict': self.generator.state_dict(),
             'generator_optimizer_state_dict': self.generator_optimizer.state_dict(),
             'discriminator_state_dict': self.discriminator.state_dict(),
             'discriminator_optimizer_state_dict': self.discriminator_optimizer.state_dict(),
-            }, self.SAVE_PATH)
+            }, os.path.join(self.save_path, f'checkpoint_{epoch}.pth.tar'))
         
     def load_checkpoint(self, lr: float = None) -> None:
-        checkpoint = torch.load(self.SAVE_PATH)
+        checkpoint = torch.load(self.save_path)
         self.generator.load_state_dict(checkpoint.get('generator_state_dict'))
         self.discriminator.load_state_dict(checkpoint.get('generator_optimizer_state_dict'))
         self.generator_optimizer.load_state_dict(checkpoint.get('generator_optimizer_state_dict'))
